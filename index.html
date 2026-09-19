@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<link rel="manifest" href="manifest.json">
+<title>My Gym Coach</title>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--text:#172033;--muted:#697386;--line:#e5e7eb;--accent:#111827;--ok:#087f5b;--warn:#b45309}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans JP",sans-serif}
+header{position:sticky;top:0;z-index:5;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);padding:14px 16px}
+h1{font-size:20px;margin:0}.sub{font-size:12px;color:var(--muted);margin-top:3px}
+main{max-width:760px;margin:auto;padding:14px 14px 100px}.tabs{display:flex;gap:7px;overflow:auto;padding:4px 0 12px}.tab{border:0;background:#e8eaee;border-radius:999px;padding:9px 14px;font-weight:700;white-space:nowrap}.tab.active{background:var(--accent);color:white}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px;margin:10px 0;box-shadow:0 1px 2px #00000008}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.metric{padding:12px;background:#f8f9fb;border-radius:12px}.metric b{display:block;font-size:22px;margin-top:3px}.label{font-size:12px;color:var(--muted)}
+h2{font-size:16px;margin:0 0 10px}h3{font-size:14px;margin:14px 0 7px}
+input,select,textarea{width:100%;border:1px solid #d7dbe2;border-radius:10px;padding:10px;font:inherit;background:white}button.primary{width:100%;border:0;border-radius:11px;padding:11px;background:var(--accent);color:white;font-weight:800;margin-top:8px}button.secondary{border:0;border-radius:10px;padding:9px 12px;background:#eef0f3;font-weight:700}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.item{padding:10px 0;border-bottom:1px solid var(--line)}.item:last-child{border-bottom:0}.small{font-size:12px;color:var(--muted)}.coach{font-size:15px;line-height:1.65}.good{color:var(--ok);font-weight:700}.warn{color:var(--warn);font-weight:700}
+.pill{display:inline-block;background:#eef0f3;border-radius:999px;padding:4px 8px;font-size:11px;margin:2px}
+.hidden{display:none}.danger{color:#b91c1c}
+canvas{width:100%;height:180px;background:#fafafa;border-radius:12px}
+</style>
+</head>
+<body>
+<header><h1>My Gym Coach</h1><div class="sub">無料版｜まずは「記録→計算→継続」</div></header>
+<main>
+<div class="tabs">
+<button class="tab active" data-tab="today">今日</button><button class="tab" data-tab="training">トレーニング</button><button class="tab" data-tab="meal">食事</button><button class="tab" data-tab="settings">設定</button>
+</div>
+
+<section id="today">
+<div class="card"><h2>今日のコーチ</h2><div id="coach" class="coach"></div></div>
+<div class="grid">
+<div class="metric"><span class="label">体重</span><b id="mWeight">--</b></div>
+<div class="metric"><span class="label">目標まで</span><b id="mRemain">--</b></div>
+<div class="metric"><span class="label">摂取</span><b id="mIntake">0 kcal</b></div>
+<div class="metric"><span class="label">たんぱく質</span><b id="mProtein">0 g</b></div>
+<div class="metric"><span class="label">歩数</span><b id="mSteps">0</b></div>
+<div class="metric"><span class="label">運動消費</span><b id="mEx">0 kcal</b></div>
+</div>
+<div class="card"><h2>体重推移</h2><canvas id="chart" width="700" height="180"></canvas><div id="trend" class="small"></div></div>
+<div class="card"><h2>今日の活動</h2>
+<div class="row"><div><label class="small">体重 kg</label><input id="todayWeight" type="number" step=".1"></div><div><label class="small">歩数</label><input id="steps" type="number"></div></div>
+<div class="row"><div><label class="small">有酸素消費 kcal</label><input id="cardio" type="number" value="0"></div><div><label class="small">筋トレ消費 kcal（任意）</label><input id="strength" type="number" value="0"></div></div>
+<button class="primary" onclick="saveToday()">今日を保存</button></div>
+</section>
+
+<section id="training" class="hidden">
+<div class="card"><h2>トレーニング記録</h2>
+<div class="row"><div><label class="small">種目</label><input id="exName" placeholder="例：チェストプレス"></div><div><label class="small">重量 kg</label><input id="exWeight" type="number" step=".5"></div></div>
+<div class="row3"><div><label class="small">回数</label><input id="exReps" type="number"></div><div><label class="small">セット数</label><input id="exSets" type="number" value="1"></div><div><label class="small">RPE(任意)</label><input id="exRpe" type="number" step=".5"></div></div>
+<button class="primary" onclick="addTraining()">追加</button>
+<div id="trainingList"></div></div>
+<div class="card"><h2>今日の判断</h2><div id="trainingAdvice" class="coach"></div></div>
+</section>
+
+<section id="meal" class="hidden">
+<div class="card"><h2>食事記録</h2>
+<label class="small">内容</label><input id="mealName" placeholder="例：おにぎり2個＋ゆで卵">
+<div class="row"><div><label class="small">kcal</label><input id="mealKcal" type="number"></div><div><label class="small">たんぱく質 g</label><input id="mealProtein" type="number"></div></div>
+<div class="row"><div><label class="small">脂質 g（任意）</label><input id="mealFat" type="number"></div><div><label class="small">炭水化物 g（任意）</label><input id="mealCarb" type="number"></div></div>
+<button class="primary" onclick="addMeal()">追加</button>
+<div id="mealList"></div></div>
+<div class="card"><h2>今日の食事アドバイス</h2><div id="mealAdvice" class="coach"></div></div>
+</section>
+
+<section id="settings" class="hidden">
+<div class="card"><h2>基本設定</h2>
+<div class="row"><div><label class="small">現在体重 kg</label><input id="sWeight" type="number" step=".1"></div><div><label class="small">目標体重 kg</label><input id="sTarget" type="number" step=".1"></div></div>
+<div class="row"><div><label class="small">身長 cm</label><input id="sHeight" type="number"></div><div><label class="small">年齢</label><input id="sAge" type="number"></div></div>
+<div><label class="small">性別</label><select id="sSex"><option value="male">男性</option><option value="female">女性</option></select></div>
+<div class="row"><div><label class="small">目標摂取 kcal</label><input id="sCal" type="number"></div><div><label class="small">タンパク質目標 g</label><input id="sProtein" type="number"></div></div>
+<button class="primary" onclick="saveSettings()">設定を保存</button>
+</div>
+<div class="card"><h2>データ</h2><button class="secondary" onclick="exportData()">JSONバックアップ</button> <button class="secondary" onclick="document.getElementById('importFile').click()">復元</button><input id="importFile" type="file" accept=".json" hidden onchange="importData(event)"><br><br><button class="secondary danger" onclick="resetData()">全データ削除</button></div>
+<div class="card small">カロリー・消費量は推定値です。医療的な診断や治療の代替ではありません。</div>
+</section>
+</main>
+<script>
+const KEY="myGymCoachFreeV1";
+const today=()=>new Date().toISOString().slice(0,10);
+let db=JSON.parse(localStorage.getItem(KEY)||"null")||{
+ settings:{weight:86.3,target:80.3,height:172,age:34,sex:"male",cal:2200,protein:140},
+ days:{}, training:[], meals:[]
+};
+function save(){localStorage.setItem(KEY,JSON.stringify(db));render()}
+function day(){if(!db.days[today()])db.days[today()]={weight:db.settings.weight,steps:0,cardio:0,strength:0};return db.days[today()]}
+function bmr(){let s=db.settings;return s.sex==="male"?10*s.weight+6.25*s.height-5*s.age+5:10*s.weight+6.25*s.height-5*s.age-161}
+function intake(){return db.meals.filter(x=>x.date===today()).reduce((a,x)=>a+x.kcal,0)}
+function protein(){return db.meals.filter(x=>x.date===today()).reduce((a,x)=>a+x.protein,0)}
+function setsToday(){return db.training.filter(x=>x.date===today()).reduce((a,x)=>a+x.sets,0)}
+function render(){
+ let d=day(), s=db.settings, k=intake(), p=protein(), sets=setsToday();
+ document.getElementById("mWeight").textContent=(d.weight??s.weight).toFixed(1)+" kg";
+ document.getElementById("mRemain").textContent=Math.max(0,(d.weight??s.weight)-s.target).toFixed(1)+" kg";
+ document.getElementById("mIntake").textContent=k+" kcal";
+ document.getElementById("mProtein").textContent=p+" g";
+ document.getElementById("mSteps").textContent=(d.steps||0).toLocaleString();
+ document.getElementById("mEx").textContent=((d.cardio||0)+(d.strength||0))+" kcal";
+ document.getElementById("todayWeight").value=d.weight??s.weight;document.getElementById("steps").value=d.steps||0;document.getElementById("cardio").value=d.cardio||0;document.getElementById("strength").value=d.strength||0;
+ document.getElementById("coach").innerHTML=coachText(sets,k,p,d.steps||0);
+ document.getElementById("trainingAdvice").innerHTML=trainingAdvice(sets);
+ document.getElementById("mealAdvice").innerHTML=mealAdvice(k,p);
+ document.getElementById("trainingList").innerHTML=db.training.filter(x=>x.date===today()).map(x=>`<div class="item"><b>${esc(x.name)}</b>　${x.weight}kg × ${x.reps}回 × ${x.sets}set ${x.rpe?`<span class="pill">RPE ${x.rpe}</span>`:""}<br><span class="small">${x.date}</span></div>`).join("")||'<div class="small">まだ記録なし</div>';
+ document.getElementById("mealList").innerHTML=db.meals.filter(x=>x.date===today()).map(x=>`<div class="item"><b>${esc(x.name)}</b><br>${x.kcal} kcal / P ${x.protein}g${x.fat!=null?` / F ${x.fat}g`:""}${x.carb!=null?` / C ${x.carb}g`:""}</div>`).join("")||'<div class="small">まだ記録なし</div>';
+ document.getElementById("sWeight").value=s.weight;document.getElementById("sTarget").value=s.target;document.getElementById("sHeight").value=s.height;document.getElementById("sAge").value=s.age;document.getElementById("sSex").value=s.sex;document.getElementById("sCal").value=s.cal;document.getElementById("sProtein").value=s.protein;
+ drawChart();
+}
+function coachText(sets,k,p,steps){
+ let s=db.settings, msgs=[];
+ if(sets>=20)msgs.push(`<span class="good">今日は十分。${sets}セットやっているので、追加で追い込む必要なし。</span>`);
+ else if(sets>=10)msgs.push(`トレーニング量は十分進んでいます。仕上げは軽い有酸素10〜15分程度でOK。`);
+ else msgs.push(`まだ余裕がある日なら、${sets===0?"30〜45分程度の筋トレ":"あと数セット"}を目安に。疲労が強ければ休養でOK。`);
+ if(p<s.protein)msgs.push(`タンパク質はあと約${Math.max(0,s.protein-p)}g。`);
+ if(k>s.cal+400)msgs.push(`<span class="warn">摂取は目標をかなり超えています。ただし翌日に極端な食事制限や罰トレは不要。</span>`);
+ else msgs.push(`摂取目標は${s.cal.toLocaleString()} kcal。1日ではなく週平均で調整。`);
+ if(steps>=10000)msgs.push("歩数も十分。今日は無理に歩数を上乗せしなくてOK。");
+ return msgs.join("<br>");
+}
+function trainingAdvice(sets){if(sets>=20)return"今日は終了推奨。筋肉への刺激は十分。回復を優先。";if(sets===0)return"上半身・下半身の直近履歴を見て、疲労の少ない部位を30〜45分。";return"今のセット数なら、フォームを崩さずあと数セットまで。"; }
+function mealAdvice(k,p){let s=db.settings;if(k===0)return"食事を記録すると、残りカロリーとP量を見やすくできます。";let rem=Math.max(0,s.cal-k);return`残り目安 ${rem.toLocaleString()} kcal。Pは${Math.max(0,s.protein-p)}gほど確保できると良いです。`;}
+function saveToday(){let d=day();d.weight=+document.getElementById("todayWeight").value||d.weight;d.steps=+document.getElementById("steps").value||0;d.cardio=+document.getElementById("cardio").value||0;d.strength=+document.getElementById("strength").value||0;db.settings.weight=d.weight;save()}
+function addTraining(){let name=document.getElementById("exName").value.trim();if(!name)return;db.training.push({date:today(),name,weight:+document.getElementById("exWeight").value||0,reps:+document.getElementById("exReps").value||0,sets:+document.getElementById("exSets").value||1,rpe:+document.getElementById("exRpe").value||null});document.getElementById("exName").value="";save()}
+function addMeal(){let name=document.getElementById("mealName").value.trim();if(!name)return;db.meals.push({date:today(),name,kcal:+document.getElementById("mealKcal").value||0,protein:+document.getElementById("mealProtein").value||0,fat:document.getElementById("mealFat").value===""?null:+document.getElementById("mealFat").value,carb:document.getElementById("mealCarb").value===""?null:+document.getElementById("mealCarb").value});document.getElementById("mealName").value="";save()}
+function saveSettings(){let s=db.settings;s.weight=+document.getElementById("sWeight").value||s.weight;s.target=+document.getElementById("sTarget").value||s.target;s.height=+document.getElementById("sHeight").value||s.height;s.age=+document.getElementById("sAge").value||s.age;s.sex=document.getElementById("sSex").value;s.cal=+document.getElementById("sCal").value||s.cal;s.protein=+document.getElementById("sProtein").value||s.protein;day().weight=s.weight;save()}
+function exportData(){let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:"application/json"}));a.download="my-gym-coach-backup.json";a.click();URL.revokeObjectURL(a.href)}
+function importData(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{db=JSON.parse(r.result);save();alert("復元しました")}catch{alert("JSONを読み込めませんでした")}};r.readAsText(f)}
+function resetData(){if(confirm("全データを削除しますか？")){localStorage.removeItem(KEY);location.reload()}}
+function esc(x){return String(x).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function drawChart(){let c=document.getElementById("chart"),ctx=c.getContext("2d");ctx.clearRect(0,0,c.width,c.height);let a=Object.entries(db.days).sort((x,y)=>x[0].localeCompare(y[0])).slice(-14).map(x=>x[1].weight).filter(Number.isFinite);if(a.length<2){document.getElementById("trend").textContent="体重を2日以上記録すると推移が表示されます。";return}let min=Math.min(...a)-1,max=Math.max(...a)+1;ctx.beginPath();a.forEach((v,i)=>{let x=20+i*(c.width-40)/(a.length-1),y=c.height-20-(v-min)/(max-min)*(c.height-40);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();document.getElementById("trend").textContent=`直近${a.length}回：${a[0].toFixed(1)}kg → ${a[a.length-1].toFixed(1)}kg`;}
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll("section").forEach(x=>x.classList.add("hidden"));document.getElementById(b.dataset.tab).classList.remove("hidden")});
+render();
+if("serviceWorker" in navigator) navigator.serviceWorker.register("service-worker.js").catch(()=>{});
+</script>
+</body>
+</html>
